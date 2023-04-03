@@ -1,0 +1,166 @@
+#!/usr/bin/perl
+
+use List::Util qw(shuffle);
+use strict;
+use warnings;
+
+my $test = 9;
+
+sub get_rand ($$) 		{ my ($x,$y) = @_; return $x + int (rand($y - $x + 1)); }
+sub random_mapping ($) 	{ shuffle (1..shift); }
+
+# Originally each tree is stored as an array T, 
+# where T[i] is an tree node j connected with i+2, where j < i+2
+
+sub line_tree ($) 		{ map { $_-1 } (2..shift); }
+sub binary_tree ($) 	{ map { int($_/2) } (2..shift); }
+sub random_tree ($) 	{ map { get_rand(1,$_-1) } (2..shift); }
+
+sub medusa_tree ($$) {
+	# binary tree top + m-lines from all binary tree nodes
+	# has n + n*m nodes
+	my ($n,$m) = @_;
+	my @T = binary_tree($n);
+	my $curr = $n+1;
+	for my $i (1..$n) {			
+		$T[$curr-2] = $i;
+		$curr++;
+		for my $j (2..$m) {
+			$T[$curr-2] = $curr-1;
+			$curr++;
+		}
+	}
+	die if (@T+1 != $n+$n*$m);
+	return @T;	
+}
+
+sub modify_tree ($@) {
+	# Assumes that the given tree satisfies for each i \in [2,n] that T[i-2] < i
+	my ($seed, @T) = @_;
+	srand($seed);
+	my $a = get_rand (2,@T+1);
+	$T[$a-2] = get_rand (1,$T[$a-2]);
+	return @T;
+}
+
+sub mangled_tree_as_string ($$@) {
+	my ($seed, $mangle, @T) = @_;
+	my $n = @T+1;
+	srand ($seed);
+	my @E = map { [ $_, $T[$_-2] ] } (2..$n);
+	if ($mangle) {
+		my @M = shuffle (1..$n);
+		@E = map { [ $M[$_->[0]-1], $M[$_->[1]-1] ] } @E;
+	}
+	my @lines = map { $_->[0] . " " . $_->[1] } @E;
+	@lines = shuffle(@lines) if ($mangle);
+	return join ("\n", @lines) . "\n";
+}
+
+
+# Input is a random subset of small tests + an actual test.
+
+sub create_input ($$@) 
+{
+	my ($seed, $mods, @T) = @_;
+	my $n = @T + 1;
+	my $output = "$n\n";
+	my @Tmod = @T;
+	@Tmod = modify_tree($seed+$_, @Tmod) for (1..$mods);
+	my @M    = random_mapping($n);
+	my @Mmod = random_mapping($n);
+	$output .= mangled_tree_as_string ($seed, 0, @T);		# TODO: enable mangling
+	$output .= mangled_tree_as_string ($seed, 0, @Tmod);	# here as well
+	return $output;
+}
+
+
+my @inputs;
+
+# counting number of nodes on each level is wrong
+push @inputs, "6
+2 1
+3 1
+4 1
+5 2
+6 2
+2 1
+3 1
+4 1
+5 2
+6 4
+";
+
+# counting degrees of nodes on each level is wrong
+push @inputs, "8
+2 1
+3 2
+4 2
+5 1
+6 5
+7 6
+8 6
+2 1
+3 2
+4 2
+5 1
+6 5
+7 4
+8 4
+";
+
+for my $mods (0,3,100) {
+	push @inputs, create_input (10 + $mods, $mods, line_tree(2));
+	push @inputs, create_input (20 + $mods, $mods, line_tree(4));
+	push @inputs, create_input (30 + $mods, $mods, line_tree(10));
+	push @inputs, create_input (40 + $mods, $mods, binary_tree(5));
+	push @inputs, create_input (50 + $mods, $mods, binary_tree(10));
+	push @inputs, create_input (60 + $mods, $mods, medusa_tree(3,5));
+	push @inputs, create_input (70 + $mods, $mods, medusa_tree(6,10));
+	push @inputs, create_input (80 + $mods, $mods, random_tree(10));
+}
+
+# my @outputs = (1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,0,0,1,0,0,0,0);
+
+srand($test);
+
+# print some small inputs, always including the first two
+
+my @SMALL_INPUTS = (0,1);
+for (2..$#inputs) {
+	push @SMALL_INPUTS, $_ if (int(rand(2)) == 1);
+}
+
+
+@SMALL_INPUTS = shuffle (@SMALL_INPUTS);
+
+print @SMALL_INPUTS + 1, "\n";
+for (@SMALL_INPUTS) {
+	print $inputs[$_];
+}
+
+# print actual input
+
+if ($test == 1) {
+	print create_input ($test, 0, binary_tree(500));
+} elsif ($test == 2) {
+	print create_input ($test, 1, random_tree(10000));
+} elsif ($test == 3) {
+	print create_input ($test, 0, line_tree(10000));
+} elsif ($test == 4) {
+	print create_input ($test, 1, binary_tree(500000));
+} elsif ($test == 5) {
+	print create_input ($test, 1, random_tree(500000));
+} elsif ($test == 6) {
+	print create_input ($test, 1, binary_tree(500000));
+} elsif ($test == 7) {
+	print create_input ($test, 0, medusa_tree(500,999));
+} elsif ($test == 8) {
+	print create_input ($test, 1, medusa_tree(5000,99));
+} elsif ($test == 9) {
+	print create_input ($test, 0, random_tree(500000));
+} elsif ($test == 10) {
+	print create_input ($test, 1, random_tree(500000));
+} else {
+	die;
+}
